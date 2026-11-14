@@ -29,15 +29,16 @@ It hides windows belonging to inactive workspaces and automatically manages appl
 # Installation
 
 Download the `LifeSaver-Setup.exe` from the repo's GitHub releases and run it.
+
 Or you could use the `LifeSaver-Portable.exe` for a standalone binary.
 
 # Building
 
 Requires MinGW-w64 (`gcc`)
 
-`.\build.bat` -> Build and run the debug binary
-`.\build.bat debug` -> Build the debug binary
-`.\build.bat release` -> Build the release binary
+- `.\build.bat` -> Build and run the debug binary
+- `.\build.bat debug` -> Build the debug binary
+- `.\build.bat release` -> Build the release binary
 
 # Disclaimer
 
