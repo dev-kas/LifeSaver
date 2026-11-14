@@ -30,7 +30,8 @@ gcc main.c ^
     -o .builds\debug\main.exe ^
     -O0 ^
     -g ^
-    -DDEBUG
+    -DDEBUG ^
+    -ldwmapi
 
 if errorlevel 1 (
     echo [ERROR] debug build failed
@@ -59,7 +60,8 @@ gcc main.c ^
     -Werror ^
     -Wextra ^
     -mwindows ^
-    -s
+    -s ^
+    -ldwmapi
 
 if errorlevel 1 (
     echo [ERROR] release build failed
