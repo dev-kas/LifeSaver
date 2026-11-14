@@ -26,7 +26,7 @@ echo [BUILD] debug configuration...
 
 if not exist ".builds\debug" mkdir ".builds\debug"
 
-gcc main.c ^
+gcc main.c workspace.c ^
     -o .builds\debug\main.exe ^
     -O0 ^
     -g ^
@@ -53,7 +53,7 @@ echo [BUILD] release configuration...
 
 if not exist ".builds\release" mkdir ".builds\release"
 
-gcc main.c ^
+gcc main.c workspace.c ^
     -o .builds\release\main.exe ^
     -O3 ^
     -DNDEBUG ^
