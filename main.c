@@ -3,11 +3,17 @@
 #include <stdio.h>
 #include <string.h>
 #include <windows.h>
+#include <winuser.h>
 
 #ifndef MOD_NOREPEAT
 #define MOD_NOREPEAT 0x4000
 #endif
 
+#ifndef EVENT_OBJECT_UNCLOAKED
+#define EVENT_OBJECT_UNCLOAKED 0x8018
+#endif
+
+#include "audio.h"
 #include "workspace.h"
 
 static void set_dwm_transitions_disabled(HWND hwnd, bool disabled) {
@@ -56,7 +62,11 @@ static bool is_manageable_window(HWND hwnd) {
   if (GetClassNameA(hwnd, cls, sizeof(cls)) > 0) {
     if (strcmp(cls, "Shell_TrayWnd") == 0 ||
         strcmp(cls, "Shell_SecondaryTrayWnd") == 0 ||
-        strcmp(cls, "Progman") == 0 || strcmp(cls, "WorkerW") == 0)
+        strcmp(cls, "Progman") == 0 || strcmp(cls, "WorkerW") == 0 ||
+        strcmp(cls, "Windows.UI.Core.CoreWindow") == 0 ||
+        strcmp(cls, "XamlExplorerHostWindow") == 0 ||
+        strcmp(cls, "MultitaskingViewFrame") == 0 ||
+        strcmp(cls, "TaskSwitcherWnd") == 0)
       return false;
   }
 
@@ -87,11 +97,13 @@ static void CALLBACK win_event_proc(HWINEVENTHOOK hook, DWORD event, HWND hwnd,
     int ws = find_window_ws(hwnd);
     if (ws != -1) {
       ws_remove(ws, hwnd);
+      audio_sync();
     }
     return;
   }
 
-  if (event == EVENT_OBJECT_SHOW) {
+  if (event == EVENT_OBJECT_SHOW || event == EVENT_OBJECT_UNCLOAKED ||
+      event == EVENT_SYSTEM_FOREGROUND) {
     int ws = find_window_ws(hwnd);
 
     if (ws != -1) {
@@ -116,15 +128,34 @@ static void CALLBACK win_event_proc(HWINEVENTHOOK hook, DWORD event, HWND hwnd,
       } else {
         printf("added new window (%p) to current workspace (%d)\n",
                (void *)hwnd, target_ws + 1);
+        audio_sync();
       }
     }
   }
+}
+
+static BOOL CALLBACK enum_sync_current_proc(HWND hwnd, LPARAM lParam) {
+  (void)lParam;
+  if (find_window_ws(hwnd) == -1 && is_manageable_window(hwnd)) {
+    int target_ws = find_owner_ws(hwnd);
+    if (target_ws == -1)
+      target_ws = ws_current();
+    ws_add(target_ws, hwnd);
+    if (target_ws != ws_current()) {
+      set_dwm_transitions_disabled(hwnd, true);
+      ShowWindow(hwnd, SW_HIDE);
+    }
+    printf("caught window (%p) -> workspace (%d)\n", (void *)hwnd,
+           target_ws + 1);
+  }
+  return TRUE;
 }
 
 static void switch_workspace(int target) {
   if (target < 0 || target >= NUM_WORKSPACES || target == ws_current())
     return;
 
+  EnumWindows(enum_sync_current_proc, 0);
   ws_set_is_switching(true);
 
   // save current fg
@@ -167,6 +198,9 @@ static void switch_workspace(int target) {
     SetForegroundWindow(to_focus);
 
   ws_set_is_switching(false);
+
+  audio_sync();
+
   printf("workspace transition complete: %d -> %d\n", ws_prev() + 1,
          ws_current() + 1);
 }
@@ -197,10 +231,13 @@ static void move_fg_to_workspace(int target) {
     ws_set_is_switching(false);
   }
 
+  audio_sync();
+
   printf("move window %p to workspace %d\n", (void *)fg, target + 1);
 }
 
 static void restore_all_windows(void) {
+  audio_restore_all();
   ws_set_is_switching(true);
   for (int w = 0; w < NUM_WORKSPACES; w++) {
     for (int i = 0; i < g_ws[w].count; i++) {
@@ -235,12 +272,15 @@ int main(void) {
   EnumWindows(enum_init_proc, 0);
   printf("initialized workspace 1 with %d windows\n", g_ws[0].count);
 
-  // hook window show and destroy events
-  HWINEVENTHOOK hook_show =
-      SetWinEventHook(EVENT_OBJECT_SHOW, EVENT_OBJECT_SHOW, NULL,
+  // hook window events
+  HWINEVENTHOOK hook_obj =
+      SetWinEventHook(EVENT_OBJECT_DESTROY, EVENT_OBJECT_SHOW, NULL,
                       win_event_proc, 0, 0, WINEVENT_OUTOFCONTEXT);
-  HWINEVENTHOOK hook_destroy =
-      SetWinEventHook(EVENT_OBJECT_DESTROY, EVENT_OBJECT_DESTROY, NULL,
+  HWINEVENTHOOK hook_uncloak =
+      SetWinEventHook(EVENT_OBJECT_UNCLOAKED, EVENT_OBJECT_UNCLOAKED, NULL,
+                      win_event_proc, 0, 0, WINEVENT_OUTOFCONTEXT);
+  HWINEVENTHOOK hook_fg =
+      SetWinEventHook(EVENT_SYSTEM_FOREGROUND, EVENT_SYSTEM_FOREGROUND, NULL,
                       win_event_proc, 0, 0, WINEVENT_OUTOFCONTEXT);
 
   // register workspace hotkeys
@@ -281,8 +321,9 @@ int main(void) {
 
   printf("hoykeys registered. listening for events\n");
 
-  MSG msg;
+  audio_init();
 
+  MSG msg;
   while (GetMessage(&msg, NULL, 0, 0) > 0) {
     if (msg.message == WM_HOTKEY) {
       int id = (int)msg.wParam;
@@ -307,8 +348,11 @@ int main(void) {
     DispatchMessage(&msg);
   }
 
-  UnhookWinEvent(hook_show);
-  UnhookWinEvent(hook_destroy);
+  audio_shutdown();
+
+  UnhookWinEvent(hook_obj);
+  UnhookWinEvent(hook_uncloak);
+  UnhookWinEvent(hook_fg);
 
   for (int i = 0; i < NUM_WORKSPACES; i++) {
     UnregisterHotKey(NULL, HK_SWITCH_BASE + i);

@@ -26,12 +26,13 @@ echo [BUILD] debug configuration...
 
 if not exist ".builds\debug" mkdir ".builds\debug"
 
-gcc main.c workspace.c ^
+gcc main.c workspace.c audio.c ^
     -o .builds\debug\main.exe ^
     -O0 ^
     -g ^
     -DDEBUG ^
-    -ldwmapi
+    -D_WIN32_WINNT=0x0A00 ^
+    -ldwmapi -lole32 -luuid
 
 if errorlevel 1 (
     echo [ERROR] debug build failed
@@ -53,7 +54,7 @@ echo [BUILD] release configuration...
 
 if not exist ".builds\release" mkdir ".builds\release"
 
-gcc main.c workspace.c ^
+gcc main.c workspace.c audio.c ^
     -o .builds\release\main.exe ^
     -O3 ^
     -DNDEBUG ^
@@ -61,7 +62,8 @@ gcc main.c workspace.c ^
     -Wextra ^
     -mwindows ^
     -s ^
-    -ldwmapi
+    -D_WIN32_WINNT=0x0A00 ^
+    -ldwmapi -lole32 -luuid
 
 if errorlevel 1 (
     echo [ERROR] release build failed
