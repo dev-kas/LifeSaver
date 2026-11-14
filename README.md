@@ -29,7 +29,7 @@ It hides windows belonging to inactive workspaces and automatically manages appl
 # Installation
 
 Download the `LifeSaver-Setup.exe` from the repo's GitHub releases and run it.
-Or you could use the `LifeSaver-Portable.zip` for a standalone binary.
+Or you could use the `LifeSaver-Portable.exe` for a standalone binary.
 
 # Building
 

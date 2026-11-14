@@ -54,7 +54,10 @@ echo [BUILD] release configuration...
 
 if not exist ".builds\release" mkdir ".builds\release"
 
+windres "assets\lifesaver.rc" -O coff -o ".builds\release\lifesaver.res.o"
+
 gcc main.c workspace.c audio.c ^
+    .builds\release\lifesaver.res.o ^
     -o .builds\release\main.exe ^
     -O3 ^
     -DNDEBUG ^
